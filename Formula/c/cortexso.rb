@@ -1,8 +1,8 @@
 class Cortexso < Formula
   desc "Drop-in, local AI alternative to the OpenAI stack"
   homepage "https://jan.ai/cortex"
-  url "https://registry.npmjs.org/cortexso/-/cortexso-0.1.1.tgz"
-  sha256 "48efc16761eebfdd60e50211049554e7b781b30e56461042c6bf100e84d8d244"
+  url "https://registry.npmjs.org/cortexso/-/cortexso-0.5.0-4.tgz"
+  sha256 "0d5ca417c5cb7f983919a85b0b3f9abfba21e7c9145bb699378d24017738160d"
   license "Apache-2.0"
   head "https://github.com/janhq/cortex.git", branch: "dev"
 
@@ -17,17 +17,31 @@ class Cortexso < Formula
     sha256 cellar: :any_skip_relocation, x86_64_linux:   "f02d924016dcab7dce2faecaac5a77ba04ad4ba20dcac3e0fcc753d248364264"
   end
 
-  depends_on "node"
+  depends_on "node@20"
+  depends_on "yarn"
+  depends_on "ninja" => :build
+  depends_on "cmake" => :build
+  depends_on "pkg-config" => :build
 
   on_linux do
     # Workaround for old `node-gyp` that needs distutils.
     # TODO: Remove when `node-gyp` is v10+
     depends_on "python-setuptools" => :build
+    depends_on "util-linux" # for libuuid
+  end
+
+  on_macos do
+    depends_on xcode: :build
   end
 
   conflicts_with "cortex", because: "both install `cortex` binaries"
 
   def install
+    if OS.mac?
+      ENV["CC"] = "clang"
+      ENV["CXX"] = "clang++"
+    end
+
     system "npm", "install", *std_npm_args
     bin.install_symlink Dir["#{libexec}/bin/*"]
 
@@ -42,7 +56,7 @@ class Cortexso < Formula
 
   test do
     port = free_port
-    pid = fork { exec bin/"cortex", "serve", "--port", port.to_s }
+    pid = fork { exec bin/"cortex", "--port", port.to_s }
     sleep 10
     begin
       assert_match "OK", shell_output("curl -s localhost:#{port}/v1/health")
